@@ -5,12 +5,10 @@ import lombok.Data;
 @Data
 public class BaseResponse {
     private String message;
-    private String entity;
 
     // Добавьте геттеры и сеттеры при необходимости
 
-    public BaseResponse(String message, String entity) {
+    public BaseResponse(String message) {
         this.message = message;
-        this.entity = entity;
     }
 }

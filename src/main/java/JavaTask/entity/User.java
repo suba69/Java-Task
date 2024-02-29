@@ -26,9 +26,5 @@ public class User {
     private String username;
     private String password;
     private String email;
-
-    public void encryptPassword(PasswordEncoder passwordEncoder) {
-        this.password = passwordEncoder.encode(this.password);
-    }
 }
 

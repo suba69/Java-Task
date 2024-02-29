@@ -10,6 +10,8 @@ import JavaTask.service.AuthService;
 import JavaTask.service.UserService;
 import JavaTask.token.JwtTokenManager;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -31,10 +33,11 @@ public class AuthController {
     private static final String CREATION_MESSAGE = "User created successfully";
     private final AuthService authService;
     private final UserService userService;
-    private final MongoDBUser mongoDBUser;
 
     private final AuthenticationManager authenticationManager;
-    private final JwtTokenManager jwtTokenManager;
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
+
     @PostMapping()
     public ResponseEntity<JwtResponse> createAuthToken(@RequestBody JwtRequest jwtRequest) throws BadCredentialsException {
         String token = authService.getToken(jwtRequest);
@@ -57,7 +60,7 @@ public class AuthController {
 
 
     @PostMapping("/login")
-    public ResponseEntity<JwtResponse> loginUser(@RequestBody JwtRequest jwtRequest) {
+    public ResponseEntity<BaseResponse> loginUser(@RequestBody JwtRequest jwtRequest) {
         String username = jwtRequest.getUsername();
         String password = jwtRequest.getPassword();
 
@@ -69,15 +72,18 @@ public class AuthController {
             // Устанавливаем аутентификацию в контекст безопасности
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // Генерация токена
-            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-            String token = jwtTokenManager.getJwtToken(userDetails);
-
-            return ResponseEntity.ok(new JwtResponse(token, "Login successful."));
+            // Возвращаем успешный статус, так как аутентификация прошла успешно
+            return ResponseEntity.ok(new BaseResponse("Login successful."));
         } catch (BadCredentialsException e) {
             // Ошибка аутентификации (неверный пароль)
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new JwtResponse(null, "Authentication failed. Invalid credentials."));
+                    .body(new BaseResponse("Authentication failed. Invalid credentials."));
+        } catch (Exception e) {
+            // Общая ошибка аутентификации
+            logger.error("Unexpected error during authentication", e);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new BaseResponse("Authentication failed. An unexpected error occurred."));
         }
     }
 }
