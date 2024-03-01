@@ -9,10 +9,11 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-@SuperBuilder
+import java.util.List;
+
+@Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Data
 @Document(value = "user")
 @CompoundIndexes({
         @CompoundIndex(name = "unique_username", def = "{'username': 1}", unique = true),
@@ -24,5 +25,9 @@ public class User {
     private String username;
     private String password;
     private String email;
+
+    // Додайте поле для зберігання ролей користувача
+    private List<String> roles;
 }
+
 

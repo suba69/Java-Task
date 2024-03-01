@@ -1,6 +1,6 @@
 package JavaTask.controller;
-import JavaTask.entity.StatisticsCache;
-import JavaTask.repositoryUser.StatisticsCacheRepository;
+
+import JavaTask.serviceUser.CacheService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,7 +12,6 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -25,25 +24,23 @@ public class StatisticsController {
     @Autowired
     private MongoTemplate mongoTemplate;
 
-    private final StatisticsCacheRepository statisticsCacheRepository;
-
-    public StatisticsController(StatisticsCacheRepository statisticsCacheRepository) {
-        this.statisticsCacheRepository = statisticsCacheRepository;
-    }
+    @Autowired
+    private CacheService cacheService;
 
 
     @GetMapping("/statisticsBySpecifiedDate")
     @Cacheable(value = "statisticsByDateCache", key = "#selectedDate")
-    public ResponseEntity<String> getStatisticsBySpecifiedDate(@RequestParam("selectedDate") String selectedDate, Authentication authentication) {
+    public ResponseEntity<String> getStatisticsBySpecifiedDate(@RequestParam("selectedDate") String selectedDate) {
 
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
-        }
+        String additionalParams = "selectedDate=" + selectedDate;
 
-        // Перевірка, чи в кеші
-        StatisticsCache cachedStatistics = statisticsCacheRepository.findBySelectedDate(selectedDate);
-        if (cachedStatistics != null) {
-            return ResponseEntity.ok(cachedStatistics.getCachedResult());
+        String cacheKey = "statisticsBySpecifiedDate:" + additionalParams;
+        Object cachedResult = cacheService.getFromCache(cacheKey);
+
+        if (cachedResult != null) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(cachedResult.toString());
         }
 
         try {
@@ -106,34 +103,35 @@ public class StatisticsController {
 
             );
 
-            AggregationResults<Document> result = mongoTemplate.aggregate(aggregation, "task", Document.class);
-            List<Document> selectedDateStatistics = result.getMappedResults();
+            AggregationResults<Document> results = mongoTemplate.aggregate(aggregation, "task", Document.class);
+            List<Document> resultDocuments = results.getMappedResults();
 
-            if (!selectedDateStatistics.isEmpty()) {
-                ObjectMapper objectMapper = new ObjectMapper();
-                String jsonResult = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(selectedDateStatistics);
+            Object resultObject = new ObjectMapper().readTree(new ObjectMapper().writeValueAsString(resultDocuments));
 
-                // Зберігання результату в кеші
-                StatisticsCache statisticsCache = new StatisticsCache();
-                statisticsCache.setSelectedDate(selectedDate);
-                statisticsCache.setCachedResult(jsonResult);
-                statisticsCacheRepository.save(statisticsCache);
+            cacheService.saveToCache(cacheKey, resultObject);
 
-                return ResponseEntity.ok(jsonResult);
-            } else {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No statistics found for the selected date.");
-            }
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(resultObject.toString());
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Server error.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
     @GetMapping("/totalStatisticsAllDate")
-    public ResponseEntity<Object> getTotalStatistics(Authentication authentication) {
+    public ResponseEntity<Object> getTotalStatistics() {
 
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        String additionalParams = "";
+
+        String cacheKey = "totalStatisticsAllDate:" + additionalParams;
+        Object cachedResult = cacheService.getFromCache(cacheKey);
+
+        if (cachedResult != null) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(cachedResult);
         }
+
 
         try {
             Aggregation aggregation = Aggregation.newAggregation(
@@ -197,6 +195,9 @@ public class StatisticsController {
             List<Document> resultDocuments = results.getMappedResults();
 
             Object resultObject = new ObjectMapper().readTree(new ObjectMapper().writeValueAsString(resultDocuments));
+
+            cacheService.saveToCache(cacheKey, resultObject);
+
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(resultObject);
@@ -207,10 +208,16 @@ public class StatisticsController {
     }
 
     @GetMapping("/totalStatisticsAllASIN")
-    public ResponseEntity<Object> getTotalStatisticsByASIN(Authentication authentication) {
+    public ResponseEntity<Object> getTotalStatisticsByASIN() {
+        String additionalParams = "";
 
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        String cacheKey = "totalStatisticsAllASIN:" + additionalParams;
+        Object cachedResult = cacheService.getFromCache(cacheKey);
+
+        if (cachedResult != null) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(cachedResult);
         }
 
         try {
@@ -263,6 +270,9 @@ public class StatisticsController {
             List<Document> resultDocuments = results.getMappedResults();
 
             Object resultObject = new ObjectMapper().readTree(new ObjectMapper().writeValueAsString(resultDocuments));
+
+            cacheService.saveToCache(cacheKey, resultObject);
+
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(resultObject);
@@ -273,17 +283,22 @@ public class StatisticsController {
     }
 
     @GetMapping("/totalStatisticsByASIN")
-    public ResponseEntity<Object> getTotalStatisticsByASIN(@RequestParam String asin, Authentication authentication) {
+    public ResponseEntity<Object> getTotalStatisticsByASIN(@RequestParam String asin) {
 
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        String additionalParams = "asin=" + asin;
+        String cacheKey = "totalStatisticsByASIN:" + additionalParams;
+        Object cachedResult = cacheService.getFromCache(cacheKey);
+
+        if (cachedResult != null) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(cachedResult);
         }
 
         try {
             Aggregation aggregation = Aggregation.newAggregation(
                     match(Criteria.where("reportSpecification.reportType").is("GET_SALES_AND_TRAFFIC_REPORT")),
                     unwind("salesAndTrafficByAsin"),
-                    match(Criteria.where("salesAndTrafficByAsin.parentAsin").is(asin)),
                     project()
                             .and("salesAndTrafficByAsin.parentAsin").as("parentAsin")
                             .and("salesAndTrafficByAsin.salesByAsin.unitsOrdered").as("salesByAsin.unitsOrdered")
@@ -330,6 +345,9 @@ public class StatisticsController {
             List<Document> resultDocuments = results.getMappedResults();
 
             Object resultObject = new ObjectMapper().readTree(new ObjectMapper().writeValueAsString(resultDocuments));
+
+            cacheService.saveToCache(cacheKey, resultObject);
+
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(resultObject);
@@ -340,4 +358,3 @@ public class StatisticsController {
     }
 
 }
-

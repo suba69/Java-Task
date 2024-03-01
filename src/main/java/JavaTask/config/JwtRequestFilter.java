@@ -11,12 +11,15 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 
 import java.io.IOException;
+import java.util.List;
+
 @Configuration
 @EnableWebSecurity
 @Component
@@ -34,16 +37,20 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             try {
                 String username = jwtTokenManager.getUsername(jwt);
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
-                            new UsernamePasswordAuthenticationToken(username, null);
-
+                    UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = new UsernamePasswordAuthenticationToken(
+                            username,
+                            null,
+                            jwtTokenManager.getUserRoles(jwt)
+                    );
                     SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
                 }
             } catch (MalformedJwtException exception) {
-                logger.debug(exception.getMessage());
+                log.debug(exception.getMessage());
             }
         }
         filterChain.doFilter(request, response);
     }
+
+
 
 }

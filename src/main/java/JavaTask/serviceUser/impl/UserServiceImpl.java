@@ -11,6 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Optional;
 
 @Service
@@ -52,14 +53,15 @@ public class UserServiceImpl implements UserService {
     public String save(UserRegistrationDto userRegistrationDto) {
         String username = userRegistrationDto.getUsername();
 
-        // Шифруем пароль
+        // Encrypt the password
         String encryptedPassword = passwordEncoder.encode(userRegistrationDto.getPassword());
 
-        // Создаем объект User из DTO
+        // Create a new User object from DTO and assign the "USER" role
         User user = new User();
         user.setUsername(username);
         user.setPassword(encryptedPassword);
         user.setEmail(userRegistrationDto.getEmail());
+        user.setRoles(Collections.singletonList("ROLE_USER")); // Assign "USER" role
 
         userRepository.save(user);
 
