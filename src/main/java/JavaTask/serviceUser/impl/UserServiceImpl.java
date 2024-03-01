@@ -53,15 +53,13 @@ public class UserServiceImpl implements UserService {
     public String save(UserRegistrationDto userRegistrationDto) {
         String username = userRegistrationDto.getUsername();
 
-        // Encrypt the password
         String encryptedPassword = passwordEncoder.encode(userRegistrationDto.getPassword());
 
-        // Create a new User object from DTO and assign the "USER" role
         User user = new User();
         user.setUsername(username);
         user.setPassword(encryptedPassword);
         user.setEmail(userRegistrationDto.getEmail());
-        user.setRoles(Collections.singletonList("ROLE_USER")); // Assign "USER" role
+        user.setRoles(Collections.singletonList("ROLE_USER"));
 
         userRepository.save(user);
 
@@ -70,9 +68,6 @@ public class UserServiceImpl implements UserService {
 
         return jwtTokenManager.getJwtToken(userDetails);
     }
-
-
-
 
     @Override
     public User getByUsername(String username) {
