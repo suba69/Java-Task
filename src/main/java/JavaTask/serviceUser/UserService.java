@@ -1,4 +1,4 @@
-package JavaTask.service;
+package JavaTask.serviceUser;
 
 import JavaTask.dto.UserRegistrationDto;
 import JavaTask.entity.User;

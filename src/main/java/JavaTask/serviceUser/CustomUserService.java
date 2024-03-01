@@ -1,4 +1,4 @@
-package JavaTask.service;
+package JavaTask.serviceUser;
 
 import JavaTask.entity.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -25,7 +25,6 @@ public class CustomUserService implements UserDetailsService {
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getUsername())
                 .password(user.getPassword())
-                .roles("YOUR_USER_ROLE") // Укажите роли пользователя
                 .build();
     }
 }

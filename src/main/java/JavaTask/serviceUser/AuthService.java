@@ -1,10 +1,8 @@
-package JavaTask.service;
+package JavaTask.serviceUser;
 
 import JavaTask.dto.JwtRequest;
 import JavaTask.token.JwtTokenManager;
-import com.mongodb.annotations.Beta;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Bean;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

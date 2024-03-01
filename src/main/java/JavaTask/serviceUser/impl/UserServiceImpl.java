@@ -1,8 +1,9 @@
-package JavaTask.service;
+package JavaTask.serviceUser.impl;
 
 import JavaTask.dto.UserRegistrationDto;
 import JavaTask.entity.User;
-import JavaTask.repository.UserRepository;
+import JavaTask.repositoryUser.UserRepository;
+import JavaTask.serviceUser.UserService;
 import JavaTask.token.JwtTokenManager;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

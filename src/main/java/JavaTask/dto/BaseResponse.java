@@ -1,14 +1,11 @@
 package JavaTask.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 @Data
+@AllArgsConstructor
 public class BaseResponse {
+
     private String message;
-
-    // Добавьте геттеры и сеттеры при необходимости
-
-    public BaseResponse(String message) {
-        this.message = message;
-    }
 }

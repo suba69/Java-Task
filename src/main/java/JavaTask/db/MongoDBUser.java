@@ -31,7 +31,7 @@ public class MongoDBUser {
         mongoTemplate.save(user, "user"); // "user" - это имя коллекции в MongoDB
     }
 
-    public static void connectToMongoDB() {
+    public static void connectToMongoDBUser() {
         try (MongoClient mongoClient = MongoClients.create("mongodb://localhost:27017")) {
             MongoDatabase database = mongoClient.getDatabase("java-test");
             MongoCollection<Document> collection = database.getCollection("user");
