@@ -1,29 +1,20 @@
 package JavaTask.controller;
-
-import JavaTask.dto.StatisticsRequest;
+import JavaTask.entity.StatisticsCache;
+import JavaTask.repositoryUser.StatisticsCacheRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
-import org.springframework.data.mongodb.core.aggregation.MatchOperation;
-import org.springframework.data.mongodb.core.aggregation.TypedAggregation;
 import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.temporal.ChronoUnit;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import static org.springframework.data.mongodb.core.aggregation.Aggregation.*;
 
@@ -34,8 +25,27 @@ public class StatisticsController {
     @Autowired
     private MongoTemplate mongoTemplate;
 
+    private final StatisticsCacheRepository statisticsCacheRepository;
+
+    public StatisticsController(StatisticsCacheRepository statisticsCacheRepository) {
+        this.statisticsCacheRepository = statisticsCacheRepository;
+    }
+
+
     @GetMapping("/statisticsBySpecifiedDate")
-    public ResponseEntity<String> getStatisticsBySpecifiedDate(@RequestParam("selectedDate") String selectedDate) {
+    @Cacheable(value = "statisticsByDateCache", key = "#selectedDate")
+    public ResponseEntity<String> getStatisticsBySpecifiedDate(@RequestParam("selectedDate") String selectedDate, Authentication authentication) {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
+
+        // Перевірка, чи в кеші
+        StatisticsCache cachedStatistics = statisticsCacheRepository.findBySelectedDate(selectedDate);
+        if (cachedStatistics != null) {
+            return ResponseEntity.ok(cachedStatistics.getCachedResult());
+        }
+
         try {
             Aggregation aggregation = Aggregation.newAggregation(
                     match(Criteria.where("reportSpecification.reportType").is("GET_SALES_AND_TRAFFIC_REPORT")),
@@ -102,6 +112,13 @@ public class StatisticsController {
             if (!selectedDateStatistics.isEmpty()) {
                 ObjectMapper objectMapper = new ObjectMapper();
                 String jsonResult = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(selectedDateStatistics);
+
+                // Зберігання результату в кеші
+                StatisticsCache statisticsCache = new StatisticsCache();
+                statisticsCache.setSelectedDate(selectedDate);
+                statisticsCache.setCachedResult(jsonResult);
+                statisticsCacheRepository.save(statisticsCache);
+
                 return ResponseEntity.ok(jsonResult);
             } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No statistics found for the selected date.");
@@ -111,9 +128,13 @@ public class StatisticsController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Server error.");
         }
     }
-
     @GetMapping("/totalStatisticsAllDate")
-    public ResponseEntity<Object> getTotalStatistics() {
+    public ResponseEntity<Object> getTotalStatistics(Authentication authentication) {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
+
         try {
             Aggregation aggregation = Aggregation.newAggregation(
                     match(Criteria.where("reportSpecification.reportType").is("GET_SALES_AND_TRAFFIC_REPORT")),
@@ -185,8 +206,13 @@ public class StatisticsController {
         }
     }
 
-    @GetMapping("/totalStatisticsByASIN")
-    public ResponseEntity<Object> getTotalStatisticsByASIN() {
+    @GetMapping("/totalStatisticsAllASIN")
+    public ResponseEntity<Object> getTotalStatisticsByASIN(Authentication authentication) {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
+
         try {
             Aggregation aggregation = Aggregation.newAggregation(
                     match(Criteria.where("reportSpecification.reportType").is("GET_SALES_AND_TRAFFIC_REPORT")),
@@ -245,5 +271,73 @@ public class StatisticsController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
     }
+
+    @GetMapping("/totalStatisticsByASIN")
+    public ResponseEntity<Object> getTotalStatisticsByASIN(@RequestParam String asin, Authentication authentication) {
+
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return new ResponseEntity<>("Unauthorized", HttpStatus.UNAUTHORIZED);
+        }
+
+        try {
+            Aggregation aggregation = Aggregation.newAggregation(
+                    match(Criteria.where("reportSpecification.reportType").is("GET_SALES_AND_TRAFFIC_REPORT")),
+                    unwind("salesAndTrafficByAsin"),
+                    match(Criteria.where("salesAndTrafficByAsin.parentAsin").is(asin)),
+                    project()
+                            .and("salesAndTrafficByAsin.parentAsin").as("parentAsin")
+                            .and("salesAndTrafficByAsin.salesByAsin.unitsOrdered").as("salesByAsin.unitsOrdered")
+                            .and("salesAndTrafficByAsin.salesByAsin.unitsOrderedB2B").as("salesByAsin.unitsOrderedB2B")
+                            .and("salesAndTrafficByAsin.salesByAsin.orderedProductSales.amount").as("salesByAsin.orderedProductSales.amount")
+                            .and("salesAndTrafficByAsin.salesByAsin.orderedProductSales.currencyCode").as("salesByAsin.orderedProductSales.currencyCode")
+                            .and("salesAndTrafficByAsin.salesByAsin.orderedProductSalesB2B.amount").as("salesByAsin.orderedProductSalesB2B.amount")
+                            .and("salesAndTrafficByAsin.salesByAsin.orderedProductSalesB2B.currencyCode").as("salesByAsin.orderedProductSalesB2B.currencyCode")
+                            .and("salesAndTrafficByAsin.salesByAsin.totalOrderItems").as("salesByAsin.totalOrderItems")
+                            .and("salesAndTrafficByAsin.salesByAsin.totalOrderItemsB2B").as("salesByAsin.totalOrderItemsB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.browserSessions").as("trafficByAsin.browserSessions")
+                            .and("salesAndTrafficByAsin.trafficByAsin.browserSessionsB2B").as("trafficByAsin.browserSessionsB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.mobileAppSessions").as("trafficByAsin.mobileAppSessions")
+                            .and("salesAndTrafficByAsin.trafficByAsin.mobileAppSessionsB2B").as("trafficByAsin.mobileAppSessionsB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.sessions").as("trafficByAsin.sessions")
+                            .and("salesAndTrafficByAsin.trafficByAsin.sessionsB2B").as("trafficByAsin.sessionsB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.browserSessionPercentage").as("trafficByAsin.browserSessionPercentage")
+                            .and("salesAndTrafficByAsin.trafficByAsin.browserSessionPercentageB2B").as("trafficByAsin.browserSessionPercentageB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.mobileAppSessionPercentage").as("trafficByAsin.mobileAppSessionPercentage")
+                            .and("salesAndTrafficByAsin.trafficByAsin.mobileAppSessionPercentageB2B").as("trafficByAsin.mobileAppSessionPercentageB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.sessionPercentage").as("trafficByAsin.sessionPercentage")
+                            .and("salesAndTrafficByAsin.trafficByAsin.sessionPercentageB2B").as("trafficByAsin.sessionPercentageB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.browserPageViews").as("trafficByAsin.browserPageViews")
+                            .and("salesAndTrafficByAsin.trafficByAsin.browserPageViewsB2B").as("trafficByAsin.browserPageViewsB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.mobileAppPageViews").as("trafficByAsin.mobileAppPageViews")
+                            .and("salesAndTrafficByAsin.trafficByAsin.mobileAppPageViewsB2B").as("trafficByAsin.mobileAppPageViewsB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.pageViews").as("trafficByAsin.pageViews")
+                            .and("salesAndTrafficByAsin.trafficByAsin.pageViewsB2B").as("trafficByAsin.pageViewsB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.browserPageViewsPercentage").as("trafficByAsin.browserPageViewsPercentage")
+                            .and("salesAndTrafficByAsin.trafficByAsin.browserPageViewsPercentageB2B").as("trafficByAsin.browserPageViewsPercentageB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.mobileAppPageViewsPercentage").as("trafficByAsin.mobileAppPageViewsPercentage")
+                            .and("salesAndTrafficByAsin.trafficByAsin.mobileAppPageViewsPercentageB2B").as("trafficByAsin.mobileAppPageViewsPercentageB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.pageViewsPercentageB2B").as("trafficByAsin.pageViewsPercentageB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.pageViewsPercentage").as("trafficByAsin.pageViewsPercentage")
+                            .and("salesAndTrafficByAsin.trafficByAsin.pageViewsPercentageB2B").as("trafficByAsin.pageViewsPercentageB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.buyBoxPercentage").as("trafficByAsin.buyBoxPercentage")
+                            .and("salesAndTrafficByAsin.trafficByAsin.buyBoxPercentageB2B").as("trafficByAsin.buyBoxPercentageB2B")
+                            .and("salesAndTrafficByAsin.trafficByAsin.unitSessionPercentage").as("trafficByAsin.unitSessionPercentage")
+                            .and("salesAndTrafficByAsin.trafficByAsin.unitSessionPercentageB2B").as("trafficByAsin.unitSessionPercentageB2B")
+                            .andExclude("_id")
+            );
+
+            AggregationResults<Document> results = mongoTemplate.aggregate(aggregation, "task", Document.class);
+            List<Document> resultDocuments = results.getMappedResults();
+
+            Object resultObject = new ObjectMapper().readTree(new ObjectMapper().writeValueAsString(resultDocuments));
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(resultObject);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
 }
 

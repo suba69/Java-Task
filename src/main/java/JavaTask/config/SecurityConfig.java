@@ -33,6 +33,11 @@ public class SecurityConfig {
                 .exceptionHandling(httpSecurityExceptionHandlingConfigurer -> httpSecurityExceptionHandlingConfigurer
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(authorizationManagerRequestMatcherRegistry -> authorizationManagerRequestMatcherRegistry
+                        .requestMatchers("/auth/registration", "/auth/login").permitAll() // Allow registration and login without authentication
+                        .requestMatchers("/statistics/statisticsBySpecifiedDate",
+                                "/statistics/totalStatisticsAllDate",
+                                "/statistics/totalStatisticsAllASIN",
+                                "/statistics/totalStatisticsByASIN").authenticated()
                         .anyRequest().permitAll())
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

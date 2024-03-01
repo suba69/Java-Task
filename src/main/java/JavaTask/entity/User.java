@@ -10,8 +10,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 @SuperBuilder
-@Getter
-@Setter
 @AllArgsConstructor
 @NoArgsConstructor
 @Data

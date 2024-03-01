@@ -31,7 +31,6 @@ public class AuthController {
     private final UserService userService;
 
     private final AuthenticationManager authenticationManager;
-
     private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     @PostMapping()
@@ -44,7 +43,6 @@ public class AuthController {
     public ResponseEntity<JwtResponse> createNewUser(@RequestBody UserRegistrationDto userRegistrationDto) throws InstantiationException, IllegalAccessException {
         String username = userRegistrationDto.getUsername();
 
-        // Проверяем, существует ли пользователь с таким именем
         if (userService.checkUserExists(username)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new JwtResponse(null, "Error: User with this username already exists."));
@@ -65,17 +63,13 @@ public class AuthController {
                     new UsernamePasswordAuthenticationToken(username, password)
             );
 
-            // Устанавливаем аутентификацию в контекст безопасности
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // Возвращаем успешный статус, так как аутентификация прошла успешно
             return ResponseEntity.ok(new BaseResponse("Login successful."));
         } catch (BadCredentialsException e) {
-            // Ошибка аутентификации (неверный пароль)
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new BaseResponse("Authentication failed. Invalid credentials."));
         } catch (Exception e) {
-            // Общая ошибка аутентификации
             logger.error("Unexpected error during authentication", e);
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
