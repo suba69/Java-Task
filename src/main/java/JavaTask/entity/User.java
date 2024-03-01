@@ -26,7 +26,6 @@ public class User {
     private String password;
     private String email;
 
-    // Додайте поле для зберігання ролей користувача
     private List<String> roles;
 }
 
